@@ -1,7 +1,31 @@
 import { Component, OnInit } from '@angular/core';
-import { NgForm } from '@angular/forms';
+
+import { FormGroup, FormBuilder, Validators, AbstractControl, ValidatorFn } from '@angular/forms'
 
 import { Customer } from './customer';
+
+function emailMatch(c: AbstractControl): { [key: string]: boolean } | null {
+  const email = c.get('email');
+  const confirmEmail = c.get('confirmEmail');
+  if (email.pristine || confirmEmail.pristine) {
+    return null;
+  }
+  if (email.value === confirmEmail.value) {
+    return null;
+  }
+  return { match: true };
+}
+
+function ratingRange(min: number, max: number): ValidatorFn {
+  return (c: AbstractControl): { [key: string]: boolean } | null => {
+    if (c.value !== null && (isNaN(c.value) || c.value < min || c.value > max)) {
+      return { range: true };
+    }
+    return null;
+  }
+}
+
+
 
 @Component({
   selector: 'app-customer',
@@ -9,15 +33,44 @@ import { Customer } from './customer';
   styleUrls: ['./customer.component.css']
 })
 export class CustomerComponent implements OnInit {
+  customerForm: FormGroup;
   customer = new Customer();
 
-  constructor() { }
+  constructor(private fb: FormBuilder) { }
 
   ngOnInit() {
+    this.customerForm = this.fb.group({
+      firstName: [null, [Validators.required, Validators.minLength(3)]],
+      lastName: [null, [Validators.required, Validators.maxLength(50)]],
+      emailGroup: this.fb.group({
+        email: [null, [Validators.required, Validators.email]],
+        confirmEmail: ['', Validators.required]
+      }, { validator: emailMatch}),
+      phone: null,
+      notification: 'email',
+      rating: [null, ratingRange(1, 5)],
+      sendCatalog: true
+    });
   }
 
-  save(customerForm: NgForm) {
-    console.log(customerForm.form);
-    console.log('Saved: ' + JSON.stringify(customerForm.value));
+  save() {
+    console.log(this.customerForm);
+    console.log('Saved: ' + JSON.stringify(this.customerForm.value));
+  }
+
+  populateTestData(): void {
+    this.customerForm.patchValue({
+      firstName: 'John'
+    });
+  }
+
+  setNotification(notifyVia: string): void {
+    const phoneControl = this.customerForm.get('phone');
+    if (notifyVia === 'text') {
+      phoneControl.setValidators(Validators.required)
+    } else {
+      phoneControl.clearValidators();
+    }
+    phoneControl.updateValueAndValidity();
   }
 }
